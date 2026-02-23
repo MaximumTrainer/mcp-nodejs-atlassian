@@ -143,7 +143,7 @@ async function waitForCallback(server: any, expectedState: string): Promise<stri
     }, 5 * 60 * 1000); // 5 minutes
     
     server.on('request', (req: any, res: any) => {
-      const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+      const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost:8080'}`);
       
       if (url.pathname === '/callback') {
         const code = url.searchParams.get('code');
