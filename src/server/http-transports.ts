@@ -78,11 +78,12 @@ export class SSETransport {
       let bodyTooLarge = false;
       const maxBodySize = parseInt(process.env.MCP_MAX_BODY_SIZE || '1048576', 10); // 1MB default
       req.on('data', (chunk: Buffer) => {
-        body += chunk.toString();
-        if (body.length > maxBodySize) {
+        if (body.length + chunk.length > maxBodySize) {
           bodyTooLarge = true;
           req.destroy();
+          return;
         }
+        body += chunk.toString();
       });
 
       req.on('end', () => {
@@ -168,11 +169,12 @@ export class StreamableHttpTransport {
       let bodyTooLarge = false;
       const maxBodySize = parseInt(process.env.MCP_MAX_BODY_SIZE || '1048576', 10); // 1MB default
       req.on('data', (chunk: Buffer) => {
-        body += chunk.toString();
-        if (body.length > maxBodySize) {
+        if (body.length + chunk.length > maxBodySize) {
           bodyTooLarge = true;
           req.destroy();
+          return;
         }
+        body += chunk.toString();
       });
 
       req.on('end', async () => {

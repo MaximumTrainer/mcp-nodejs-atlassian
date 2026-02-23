@@ -267,8 +267,8 @@ async function getCloudId(accessToken: string): Promise<string> {
 }
 
 function maskSecret(value: string): string {
-  if (value.length <= 8) return '****';
-  return value.substring(0, 4) + '****' + value.substring(value.length - 4);
+  if (value.length <= 4) return '****';
+  return '****' + value.substring(value.length - 4);
 }
 
 function displayResults(config: OAuthConfig, tokens: any): void {
@@ -287,7 +287,7 @@ function displayResults(config: OAuthConfig, tokens: any): void {
     logger.info(`ATLASSIAN_OAUTH_REFRESH_TOKEN=${maskSecret(tokens.refresh_token)}`);
   }
   logger.info('\n⚠️  Keep these credentials secure and do not commit them to version control!');
-  logger.info('⚠️  Token values have been masked above. Retrieve full tokens from your OAuth provider or re-run setup.');
+  logger.info('⚠️  Token values have been masked above. Copy full tokens during setup or re-run to generate new ones.');
   
   // Also show URLs
   const baseUrl = `https://api.atlassian.com/ex/jira/${config.cloudId}`;
