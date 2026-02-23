@@ -114,7 +114,8 @@ program
         });
       }
     } catch (error) {
-      logger.error('Failed to start server:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`Failed to start server: ${errorMessage}`);
       process.exit(1);
     }
   });

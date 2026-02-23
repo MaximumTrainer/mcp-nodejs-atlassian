@@ -1,5 +1,18 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Logger } from '../utils/logger.js';
+
+function sanitizeError(error: unknown): string {
+  if (error instanceof AxiosError) {
+    const status = error.response?.status || 'unknown';
+    const statusText = error.response?.statusText || '';
+    const message = error.message;
+    return `HTTP ${status} ${statusText}: ${message}`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'Unknown error';
+}
 
 export class JiraClient {
   private client: AxiosInstance;
@@ -40,6 +53,14 @@ export class JiraClient {
     this.logger.info(`Jira client initialized for ${this.baseUrl}`);
   }
 
+  private static readonly VALID_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+  private validateKey(key: string, label: string): void {
+    if (!JiraClient.VALID_KEY_PATTERN.test(key)) {
+      throw new Error(`Invalid ${label}: only alphanumeric characters, hyphens, and underscores are allowed`);
+    }
+  }
+
   async searchIssues(jql: string, fields?: string[], maxResults: number = 50): Promise<any> {
     try {
       const params: any = {
@@ -54,7 +75,11 @@ export class JiraClient {
       // Apply project filter if configured
       const projectsFilter = process.env.JIRA_PROJECTS_FILTER;
       if (projectsFilter) {
-        const projects = projectsFilter.split(',').map(p => p.trim()).join(',');
+        const projects = projectsFilter.split(',').map(p => {
+          const trimmed = p.trim();
+          this.validateKey(trimmed, 'project filter key');
+          return `"${trimmed}"`;
+        }).join(',');
         params.jql = `project in (${projects}) AND (${jql})`;
       }
 
@@ -63,7 +88,7 @@ export class JiraClient {
       this.logger.debug(`Search completed: ${response.data.issues?.length || 0} issues found`);
       return response.data;
     } catch (error) {
-      this.logger.error('Issue search failed:', error);
+      this.logger.error(`Issue search failed: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -85,7 +110,7 @@ export class JiraClient {
       this.logger.debug(`Retrieved issue: ${issueKey}`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to get issue ${issueKey}:`, error);
+      this.logger.error(`Failed to get issue ${issueKey}: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -117,7 +142,7 @@ export class JiraClient {
       this.logger.info(`Created issue: ${response.data.key}`);
       return response.data;
     } catch (error) {
-      this.logger.error('Failed to create issue:', error);
+      this.logger.error(`Failed to create issue: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -135,7 +160,7 @@ export class JiraClient {
       this.logger.info(`Updated issue: ${issueKey}`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to update issue ${issueKey}:`, error);
+      this.logger.error(`Failed to update issue ${issueKey}: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -153,7 +178,7 @@ export class JiraClient {
       this.logger.info(`Added comment to issue: ${issueKey}`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to add comment to issue ${issueKey}:`, error);
+      this.logger.error(`Failed to add comment to issue ${issueKey}: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -165,7 +190,7 @@ export class JiraClient {
       this.logger.debug(`Retrieved ${response.data?.length || 0} projects`);
       return response.data;
     } catch (error) {
-      this.logger.error('Failed to get projects:', error);
+      this.logger.error(`Failed to get projects: ${sanitizeError(error)}`);
       throw error;
     }
   }

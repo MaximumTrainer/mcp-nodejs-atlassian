@@ -38,8 +38,11 @@ export class SSETransport {
     const url = new URL(req.url || '/', `http://${req.headers.host}`);
     const path = this.options.path || '/sse';
 
-    // Enable CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Enable CORS - restrict origin to configured value or deny by default
+    const allowedOrigin = process.env.MCP_CORS_ORIGIN || '';
+    if (allowedOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -70,13 +73,25 @@ export class SSETransport {
       });
 
     } else if (url.pathname === path && req.method === 'POST') {
-      // Handle incoming messages
+      // Handle incoming messages with body size limit
       let body = '';
-      req.on('data', chunk => {
+      let bodyTooLarge = false;
+      const maxBodySize = parseInt(process.env.MCP_MAX_BODY_SIZE || '1048576', 10); // 1MB default
+      req.on('data', (chunk: Buffer) => {
+        if (body.length + chunk.length > maxBodySize) {
+          bodyTooLarge = true;
+          req.destroy();
+          return;
+        }
         body += chunk.toString();
       });
 
       req.on('end', () => {
+        if (bodyTooLarge) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Request body too large' }));
+          return;
+        }
         try {
           const message = JSON.parse(body);
           this.logger.debug('Received message:', message);
@@ -85,7 +100,7 @@ export class SSETransport {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ jsonrpc: '2.0', id: message.id, result: {} }));
         } catch (error) {
-          this.logger.error('Error processing message:', error);
+          this.logger.error('Error processing message');
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Invalid JSON' }));
         }
@@ -135,8 +150,11 @@ export class StreamableHttpTransport {
     const url = new URL(req.url || '/', `http://${req.headers.host}`);
     const path = this.options.path || '/mcp';
 
-    // Enable CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Enable CORS - restrict origin to configured value or deny by default
+    const allowedOrigin = process.env.MCP_CORS_ORIGIN || '';
+    if (allowedOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -148,11 +166,23 @@ export class StreamableHttpTransport {
 
     if (url.pathname === path && req.method === 'POST') {
       let body = '';
-      req.on('data', chunk => {
+      let bodyTooLarge = false;
+      const maxBodySize = parseInt(process.env.MCP_MAX_BODY_SIZE || '1048576', 10); // 1MB default
+      req.on('data', (chunk: Buffer) => {
+        if (body.length + chunk.length > maxBodySize) {
+          bodyTooLarge = true;
+          req.destroy();
+          return;
+        }
         body += chunk.toString();
       });
 
       req.on('end', async () => {
+        if (bodyTooLarge) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Request body too large' }));
+          return;
+        }
         try {
           const message = JSON.parse(body);
           this.logger.debug('Received message:', message);
@@ -166,7 +196,7 @@ export class StreamableHttpTransport {
             result: { message: 'Streamable HTTP transport not fully implemented yet' }
           }));
         } catch (error) {
-          this.logger.error('Error processing message:', error);
+          this.logger.error('Error processing message');
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Invalid JSON' }));
         }
