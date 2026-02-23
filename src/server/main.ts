@@ -91,7 +91,8 @@ export function createAtlassianMCPServer() {
         ]
       };
     } catch (error) {
-      logger.error(`Error executing tool ${name}:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`Error executing tool ${name}: ${errorMessage}`);
       throw error;
     }
   });

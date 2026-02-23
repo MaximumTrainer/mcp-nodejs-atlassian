@@ -1,5 +1,18 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Logger } from '../utils/logger.js';
+
+function sanitizeError(error: unknown): string {
+  if (error instanceof AxiosError) {
+    const status = error.response?.status || 'unknown';
+    const statusText = error.response?.statusText || '';
+    const message = error.message;
+    return `HTTP ${status} ${statusText}: ${message}`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'Unknown error';
+}
 
 export class ConfluenceClient {
   private client: AxiosInstance;
@@ -40,6 +53,14 @@ export class ConfluenceClient {
     this.logger.info(`Confluence client initialized for ${this.baseUrl}`);
   }
 
+  private static readonly VALID_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+  private validateKey(key: string, label: string): void {
+    if (!ConfluenceClient.VALID_KEY_PATTERN.test(key)) {
+      throw new Error(`Invalid ${label}: only alphanumeric characters, hyphens, and underscores are allowed`);
+    }
+  }
+
   async search(query: string, spaceKey?: string, limit: number = 10): Promise<any> {
     try {
       const params: any = {
@@ -48,13 +69,18 @@ export class ConfluenceClient {
       };
 
       if (spaceKey) {
-        params.cql = `space = ${spaceKey} AND ${query}`;
+        this.validateKey(spaceKey, 'space key');
+        params.cql = `space = "${spaceKey}" AND ${query}`;
       }
 
       // Check for spaces filter
       const spacesFilter = process.env.CONFLUENCE_SPACES_FILTER;
       if (spacesFilter && !spaceKey) {
-        const spaces = spacesFilter.split(',').map(s => s.trim()).join(',');
+        const spaces = spacesFilter.split(',').map(s => {
+          const trimmed = s.trim();
+          this.validateKey(trimmed, 'space filter key');
+          return `"${trimmed}"`;
+        }).join(',');
         params.cql = `space in (${spaces}) AND ${query}`;
       }
 
@@ -63,7 +89,7 @@ export class ConfluenceClient {
       this.logger.debug(`Search completed: ${response.data.results?.length || 0} results`);
       return response.data;
     } catch (error) {
-      this.logger.error('Search failed:', error);
+      this.logger.error(`Search failed: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -80,7 +106,7 @@ export class ConfluenceClient {
       this.logger.debug(`Retrieved page: ${pageId}`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to get page ${pageId}:`, error);
+      this.logger.error(`Failed to get page ${pageId}: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -112,7 +138,7 @@ export class ConfluenceClient {
       this.logger.info(`Created page: ${title} (${response.data.id})`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to create page ${title}:`, error);
+      this.logger.error(`Failed to create page ${title}: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -143,7 +169,7 @@ export class ConfluenceClient {
       this.logger.info(`Updated page: ${title} (${pageId})`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Failed to update page ${pageId}:`, error);
+      this.logger.error(`Failed to update page ${pageId}: ${sanitizeError(error)}`);
       throw error;
     }
   }
@@ -156,7 +182,7 @@ export class ConfluenceClient {
       this.logger.debug(`Retrieved ${response.data.results?.length || 0} spaces`);
       return response.data;
     } catch (error) {
-      this.logger.error('Failed to get spaces:', error);
+      this.logger.error(`Failed to get spaces: ${sanitizeError(error)}`);
       throw error;
     }
   }

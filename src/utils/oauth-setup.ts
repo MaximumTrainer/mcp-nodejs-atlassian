@@ -1,6 +1,7 @@
 import { createServer } from 'http';
 import { parse } from 'url';
 import { createInterface } from 'readline';
+import { randomBytes } from 'crypto';
 import { Logger } from './logger.js';
 import axios from 'axios';
 
@@ -34,14 +35,15 @@ export async function runOAuthSetup(): Promise<void> {
       config.redirectUri = `http://localhost:${port}/callback`;
     }
     
-    // Generate authorization URL
-    const authUrl = generateAuthUrl(config);
+    // Generate authorization URL with CSRF state
+    const state = generateOAuthState();
+    const authUrl = generateAuthUrl(config, state);
     
     logger.info('\n🔗 Please open this URL in your browser to authorize the application:');
     logger.info(`\n${authUrl}\n`);
     
-    // Wait for callback
-    const authCode = await waitForCallback(server);
+    // Wait for callback and verify state
+    const authCode = await waitForCallback(server, state);
     
     // Exchange code for tokens
     const tokens = await exchangeCodeForTokens(config, authCode);
@@ -107,13 +109,26 @@ async function startCallbackServer(): Promise<{ server: any, port: number }> {
   });
 }
 
-function generateAuthUrl(config: OAuthConfig): string {
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+function generateOAuthState(): string {
+  return randomBytes(32).toString('hex');
+}
+
+function generateAuthUrl(config: OAuthConfig, state: string): string {
   const params = new URLSearchParams({
     audience: 'api.atlassian.com',
     client_id: config.clientId,
     scope: config.scope,
     redirect_uri: config.redirectUri,
-    state: Math.random().toString(36).substring(7),
+    state,
     response_type: 'code',
     prompt: 'consent'
   });
@@ -121,7 +136,7 @@ function generateAuthUrl(config: OAuthConfig): string {
   return `https://auth.atlassian.com/authorize?${params.toString()}`;
 }
 
-async function waitForCallback(server: any): Promise<string> {
+async function waitForCallback(server: any, expectedState: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       server.close();
@@ -134,15 +149,37 @@ async function waitForCallback(server: any): Promise<string> {
       if (url.pathname === '/callback') {
         const code = url.query.code as string;
         const error = url.query.error as string;
+        const returnedState = url.query.state as string;
         
-        if (error) {
+        // Verify OAuth state to prevent CSRF
+        if (returnedState !== expectedState) {
           res.writeHead(400, { 'Content-Type': 'text/html' });
           res.end(`
             <html>
               <body>
-                <h1>❌ Authorization Failed</h1>
-                <p>Error: ${error}</p>
-                <p>Description: ${url.query.error_description || 'Unknown error'}</p>
+                <h1>&#10060; Authorization Failed</h1>
+                <p>Invalid OAuth state parameter. This may indicate a CSRF attack.</p>
+              </body>
+            </html>
+          `);
+          clearTimeout(timeout);
+          server.close();
+          reject(new Error('OAuth state mismatch - possible CSRF attack'));
+          return;
+        }
+        
+        if (error) {
+          const safeError = escapeHtml(error);
+          const safeDescription = escapeHtml(
+            (url.query.error_description as string) || 'Unknown error'
+          );
+          res.writeHead(400, { 'Content-Type': 'text/html' });
+          res.end(`
+            <html>
+              <body>
+                <h1>&#10060; Authorization Failed</h1>
+                <p>Error: ${safeError}</p>
+                <p>Description: ${safeDescription}</p>
               </body>
             </html>
           `);
@@ -157,7 +194,7 @@ async function waitForCallback(server: any): Promise<string> {
           res.end(`
             <html>
               <body>
-                <h1>✅ Authorization Successful</h1>
+                <h1>&#9989; Authorization Successful</h1>
                 <p>You can close this window and return to the terminal.</p>
               </body>
             </html>
@@ -229,22 +266,28 @@ async function getCloudId(accessToken: string): Promise<string> {
   }
 }
 
+function maskSecret(value: string): string {
+  if (value.length <= 8) return '****';
+  return value.substring(0, 4) + '****' + value.substring(value.length - 4);
+}
+
 function displayResults(config: OAuthConfig, tokens: any): void {
   logger.info('\n🎉 OAuth setup completed successfully!');
   logger.info('\nAdd these environment variables to your .env file:');
   logger.info('\n# OAuth 2.0 Configuration');
   logger.info(`ATLASSIAN_OAUTH_CLIENT_ID=${config.clientId}`);
-  logger.info(`ATLASSIAN_OAUTH_CLIENT_SECRET=${config.clientSecret}`);
+  logger.info(`ATLASSIAN_OAUTH_CLIENT_SECRET=${maskSecret(config.clientSecret)}`);
   logger.info(`ATLASSIAN_OAUTH_REDIRECT_URI=${config.redirectUri}`);
   logger.info(`ATLASSIAN_OAUTH_SCOPE=${config.scope}`);
   if (config.cloudId) {
     logger.info(`ATLASSIAN_OAUTH_CLOUD_ID=${config.cloudId}`);
   }
-  logger.info(`ATLASSIAN_OAUTH_ACCESS_TOKEN=${tokens.access_token}`);
+  logger.info(`ATLASSIAN_OAUTH_ACCESS_TOKEN=${maskSecret(tokens.access_token)}`);
   if (tokens.refresh_token) {
-    logger.info(`ATLASSIAN_OAUTH_REFRESH_TOKEN=${tokens.refresh_token}`);
+    logger.info(`ATLASSIAN_OAUTH_REFRESH_TOKEN=${maskSecret(tokens.refresh_token)}`);
   }
   logger.info('\n⚠️  Keep these credentials secure and do not commit them to version control!');
+  logger.info('⚠️  Token values have been masked above. Retrieve full tokens from your OAuth provider or re-run setup.');
   
   // Also show URLs
   const baseUrl = `https://api.atlassian.com/ex/jira/${config.cloudId}`;
