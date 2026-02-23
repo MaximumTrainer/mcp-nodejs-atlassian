@@ -1,5 +1,4 @@
 import { createServer } from 'http';
-import { parse } from 'url';
 import { createInterface } from 'readline';
 import { randomBytes } from 'crypto';
 import { Logger } from './logger.js';
@@ -144,12 +143,12 @@ async function waitForCallback(server: any, expectedState: string): Promise<stri
     }, 5 * 60 * 1000); // 5 minutes
     
     server.on('request', (req: any, res: any) => {
-      const url = parse(req.url, true);
+      const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
       
       if (url.pathname === '/callback') {
-        const code = url.query.code as string;
-        const error = url.query.error as string;
-        const returnedState = url.query.state as string;
+        const code = url.searchParams.get('code');
+        const error = url.searchParams.get('error');
+        const returnedState = url.searchParams.get('state');
         
         // Verify OAuth state to prevent CSRF
         if (returnedState !== expectedState) {
@@ -171,7 +170,7 @@ async function waitForCallback(server: any, expectedState: string): Promise<stri
         if (error) {
           const safeError = escapeHtml(error);
           const safeDescription = escapeHtml(
-            (url.query.error_description as string) || 'Unknown error'
+            url.searchParams.get('error_description') || 'Unknown error'
           );
           res.writeHead(400, { 'Content-Type': 'text/html' });
           res.end(`
