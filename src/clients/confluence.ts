@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Logger } from '../utils/logger.js';
+import { getProxyConfig } from '../utils/proxy.js';
 
 function sanitizeError(error: unknown): string {
   if (error instanceof AxiosError) {
@@ -44,10 +45,15 @@ export class ConfluenceClient {
       throw new Error('Confluence authentication credentials not found. Set either CONFLUENCE_PERSONAL_TOKEN or CONFLUENCE_USERNAME + CONFLUENCE_API_TOKEN');
     }
 
+    const sslVerify = process.env.CONFLUENCE_SSL_VERIFY !== 'false';
+    const proxyConfig = getProxyConfig('confluence', this.baseUrl, sslVerify);
+
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: 30000,
-      ...auth
+      proxy: false, // disable axios built-in proxy; we use proxy agents
+      ...auth,
+      ...proxyConfig
     });
 
     this.logger.info(`Confluence client initialized for ${this.baseUrl}`);
