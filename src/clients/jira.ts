@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Logger } from '../utils/logger.js';
+import { getNetworkConfig } from '../utils/proxy.js';
 
 function sanitizeError(error: unknown): string {
   if (error instanceof AxiosError) {
@@ -47,7 +48,8 @@ export class JiraClient {
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: 30000,
-      ...auth
+      ...auth,
+      ...getNetworkConfig('jira', this.baseUrl)
     });
 
     this.logger.info(`Jira client initialized for ${this.baseUrl}`);
