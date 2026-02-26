@@ -59,38 +59,44 @@ export function getProxyConfig(
   const noProxy = process.env[`${prefix}_NO_PROXY`] || process.env.NO_PROXY || '';
 
   const config: ProxyConfig = {};
-
-  // Handle SSL verification
-  if (!sslVerify) {
-    config.httpsAgent = new https.Agent({ rejectUnauthorized: false });
-    logger.info(`${service}: SSL verification disabled`);
-  }
+  const isHttps = targetUrl.startsWith('https');
 
   // Check if target should bypass the proxy
   if (shouldBypassProxy(targetUrl, noProxy)) {
     logger.info(`${service}: target ${targetUrl} matches NO_PROXY, skipping proxy`);
+    // Still apply SSL verification setting even when bypassing proxy
+    if (!sslVerify) {
+      config.httpsAgent = new https.Agent({ rejectUnauthorized: false });
+      logger.info(`${service}: SSL verification disabled`);
+    }
     return config;
   }
 
-  // Determine which proxy URL to use (prefer HTTPS proxy for HTTPS targets)
-  const isHttps = targetUrl.startsWith('https');
+  // Select the proxy URL appropriate for the target protocol
   const proxyUrl = isHttps ? (httpsProxy || httpProxy) : (httpProxy || httpsProxy);
 
   if (!proxyUrl) {
+    // No proxy configured; only handle SSL verification
+    if (!sslVerify) {
+      config.httpsAgent = new https.Agent({ rejectUnauthorized: false });
+      logger.info(`${service}: SSL verification disabled`);
+    }
     return config;
   }
 
   logger.info(`${service}: using proxy ${proxyUrl}`);
 
-  if (httpProxy) {
+  if (!isHttps && httpProxy) {
     config.httpAgent = new HttpProxyAgent(httpProxy);
   }
 
-  if (httpsProxy || httpProxy) {
-    const agent = httpsProxy || httpProxy;
-    config.httpsAgent = new HttpsProxyAgent(agent, {
+  if (isHttps) {
+    config.httpsAgent = new HttpsProxyAgent(proxyUrl, {
       rejectUnauthorized: sslVerify
     });
+    if (!sslVerify) {
+      logger.info(`${service}: SSL verification disabled`);
+    }
   }
 
   return config;
