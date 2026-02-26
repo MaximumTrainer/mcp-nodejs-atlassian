@@ -159,6 +159,12 @@ JIRA_PROJECTS_FILTER=PROJ,DEV,SUPPORT     # Limit Jira projects
 
 # Tools
 ENABLED_TOOLS=confluence_search,jira_get_issue  # Specific tools only
+
+# Proxy (for desktop/corporate network use)
+HTTPS_PROXY=http://proxy.example.com:8080        # Global proxy
+JIRA_HTTPS_PROXY=http://jira-proxy:8080           # Jira-specific override
+CONFLUENCE_HTTPS_PROXY=http://confluence-proxy:8080 # Confluence-specific override
+NO_PROXY=localhost,127.0.0.1                      # Bypass proxy for these hosts
 ```
 
 ## 📚 Available Tools
@@ -213,6 +219,7 @@ node dist/index.js --transport sse --port 8000 --host 0.0.0.0
 - ✅ **OAuth 2.0** - Secure delegated access
 - ✅ **API Tokens** - Simple authentication
 - ✅ **Personal Access Tokens** - Server/Data Center support
+- ✅ **Proxy support** - HTTP/HTTPS proxy for corporate networks
 - ✅ **Read-only mode** - Safe operations
 - ✅ **Access filtering** - Limit spaces/projects
 - ✅ **Multiple transports** - stdio, SSE, HTTP
