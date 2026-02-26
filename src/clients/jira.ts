@@ -45,7 +45,7 @@ export class JiraClient {
       throw new Error('Jira authentication credentials not found. Set either JIRA_PERSONAL_TOKEN or JIRA_USERNAME + JIRA_API_TOKEN');
     }
 
-    const proxyConfig = getProxyConfig('JIRA');
+    const proxyConfig = getProxyConfig('JIRA', this.baseUrl);
 
     this.client = axios.create({
       baseURL: this.baseUrl,

@@ -45,7 +45,7 @@ export class ConfluenceClient {
       throw new Error('Confluence authentication credentials not found. Set either CONFLUENCE_PERSONAL_TOKEN or CONFLUENCE_USERNAME + CONFLUENCE_API_TOKEN');
     }
 
-    const proxyConfig = getProxyConfig('CONFLUENCE');
+    const proxyConfig = getProxyConfig('CONFLUENCE', this.baseUrl);
 
     this.client = axios.create({
       baseURL: this.baseUrl,
