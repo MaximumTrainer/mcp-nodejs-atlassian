@@ -1,11 +1,12 @@
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { HttpProxyAgent } from 'http-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
+import http from 'http';
 import https from 'https';
 
 export interface ClientNetworkConfig {
-  httpAgent?: unknown;
-  httpsAgent?: unknown;
+  httpAgent?: http.Agent;
+  httpsAgent?: https.Agent;
   proxy?: false;
 }
 
@@ -62,9 +63,14 @@ export function getNetworkConfig(service: 'jira' | 'confluence', baseUrl: string
   if (useProxy && socksProxy) {
     const agent = new SocksProxyAgent(socksProxy);
     if (!sslVerify) {
-      // SocksProxyAgent types don't expose rejectUnauthorized, but agent-base
-      // passes agent.options through to tls.connect at runtime.
-      (agent as unknown as { options: Record<string, unknown> }).options.rejectUnauthorized = false;
+      // SocksProxyAgent extends agent-base's Agent which extends http.Agent.
+      // http.Agent stores constructor opts in this.options and agent-base
+      // passes them through to tls.connect at runtime. The TypeScript types
+      // don't expose rejectUnauthorized, but the runtime path supports it.
+      const agentOpts = (agent as unknown as { options?: Record<string, unknown> }).options;
+      if (agentOpts) {
+        agentOpts.rejectUnauthorized = false;
+      }
     }
     config.httpAgent = agent;
     config.httpsAgent = agent;
