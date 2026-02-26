@@ -39,8 +39,10 @@ export interface ProxyConfig {
 /**
  * Returns proxy agent configuration for axios based on environment variables.
  *
- * Supports global env vars (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) and
- * service-specific overrides (e.g. JIRA_HTTPS_PROXY, CONFLUENCE_NO_PROXY).
+ * Supports global env vars (HTTP_PROXY, HTTPS_PROXY, NO_PROXY),
+ * service-specific overrides (e.g. JIRA_HTTPS_PROXY, CONFLUENCE_NO_PROXY),
+ * and Node/npm config variables (npm_config_proxy, npm_config_https_proxy,
+ * npm_config_noproxy) as fallbacks for corporate firewall environments.
  *
  * @param service - 'jira' or 'confluence'
  * @param targetUrl - The base URL of the target service
@@ -53,10 +55,10 @@ export function getProxyConfig(
 ): ProxyConfig {
   const prefix = service.toUpperCase();
 
-  // Service-specific env vars take precedence over global ones
-  const httpProxy = process.env[`${prefix}_HTTP_PROXY`] || process.env.HTTP_PROXY || '';
-  const httpsProxy = process.env[`${prefix}_HTTPS_PROXY`] || process.env.HTTPS_PROXY || '';
-  const noProxy = process.env[`${prefix}_NO_PROXY`] || process.env.NO_PROXY || '';
+  // Service-specific env vars take precedence, then global, then npm/node config
+  const httpProxy = process.env[`${prefix}_HTTP_PROXY`] || process.env.HTTP_PROXY || process.env.npm_config_proxy || '';
+  const httpsProxy = process.env[`${prefix}_HTTPS_PROXY`] || process.env.HTTPS_PROXY || process.env.npm_config_https_proxy || '';
+  const noProxy = process.env[`${prefix}_NO_PROXY`] || process.env.NO_PROXY || process.env.npm_config_noproxy || '';
 
   const config: ProxyConfig = {};
   const isHttps = targetUrl.startsWith('https');
