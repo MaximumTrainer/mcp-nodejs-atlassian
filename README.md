@@ -153,6 +153,10 @@ node dist/index.js --transport sse --port 8000  # HTTP mode
 READ_ONLY_MODE=true              # Disable write operations
 MCP_VERBOSE=true                 # Enable debug logging
 
+# Log to file
+MCP_LOG_FILE=true                # Enable logging to file (default: false)
+MCP_LOG_FILE_PATH=mcp-atlassian.log  # Custom log file path (default: mcp-atlassian.log)
+
 # Filtering  
 CONFLUENCE_SPACES_FILTER=DEV,TEAM,DOC     # Limit Confluence spaces
 JIRA_PROJECTS_FILTER=PROJ,DEV,SUPPORT     # Limit Jira projects

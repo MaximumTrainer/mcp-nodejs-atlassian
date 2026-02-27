@@ -16,6 +16,9 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Log files
+*.log
+
 # Debug and local development
 debug/
 local/
