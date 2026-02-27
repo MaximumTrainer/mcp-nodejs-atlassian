@@ -3,6 +3,7 @@ import { createInterface } from 'readline';
 import { randomBytes } from 'crypto';
 import { Logger } from './logger.js';
 import axios from 'axios';
+import { getProxyConfig } from './proxy.js';
 
 const logger = new Logger('oauth-setup');
 
@@ -212,8 +213,10 @@ async function waitForCallback(server: any, expectedState: string): Promise<stri
 }
 
 async function exchangeCodeForTokens(config: OAuthConfig, code: string) {
+  const tokenUrl = 'https://auth.atlassian.com/oauth/token';
+  const proxyConfig = getProxyConfig('atlassian', tokenUrl);
   try {
-    const response = await axios.post('https://auth.atlassian.com/oauth/token', {
+    const response = await axios.post(tokenUrl, {
       grant_type: 'authorization_code',
       client_id: config.clientId,
       client_secret: config.clientSecret,
@@ -222,7 +225,9 @@ async function exchangeCodeForTokens(config: OAuthConfig, code: string) {
     }, {
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      proxy: false,
+      ...proxyConfig
     });
     
     return response.data;
@@ -232,12 +237,16 @@ async function exchangeCodeForTokens(config: OAuthConfig, code: string) {
 }
 
 async function getCloudId(accessToken: string): Promise<string> {
+  const resourcesUrl = 'https://api.atlassian.com/oauth/token/accessible-resources';
+  const proxyConfig = getProxyConfig('atlassian', resourcesUrl);
   try {
-    const response = await axios.get('https://api.atlassian.com/oauth/token/accessible-resources', {
+    const response = await axios.get(resourcesUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json'
-      }
+      },
+      proxy: false,
+      ...proxyConfig
     });
     
     const resources = response.data;

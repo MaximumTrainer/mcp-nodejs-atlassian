@@ -213,10 +213,38 @@ node dist/index.js --transport sse --port 8000 --host 0.0.0.0
 - ✅ **OAuth 2.0** - Secure delegated access
 - ✅ **API Tokens** - Simple authentication
 - ✅ **Personal Access Tokens** - Server/Data Center support
+- ✅ **Proxy Support** - Corporate firewall compatible
 - ✅ **Read-only mode** - Safe operations
 - ✅ **Access filtering** - Limit spaces/projects
 - ✅ **Multiple transports** - stdio, SSE, HTTP
 - ✅ **Process management** - PM2/systemd compatible
+
+### Proxy / Corporate Firewall
+
+All HTTP requests (including OAuth authentication) support proxying via
+standard environment variables. The resolution order is:
+
+1. **Service-specific** – `JIRA_HTTPS_PROXY`, `CONFLUENCE_HTTPS_PROXY`, etc.
+2. **Global** – `HTTPS_PROXY` / `HTTP_PROXY`
+3. **npm/Node config** – `npm_config_https_proxy` / `npm_config_proxy`
+
+Set any of the above to route traffic through your corporate proxy:
+
+```bash
+# Global proxy (applies to all services + OAuth)
+export HTTPS_PROXY=http://proxy.corp.example.com:8080
+
+# Or use npm config (also picked up automatically)
+npm config set proxy http://proxy.corp.example.com:8080
+npm config set https-proxy http://proxy.corp.example.com:8080
+
+# Bypass proxy for specific hosts
+export NO_PROXY=localhost,127.0.0.1,.internal.corp
+
+# Disable SSL verification if needed (per-service)
+export JIRA_SSL_VERIFY=false
+export CONFLUENCE_SSL_VERIFY=false
+```
 
 ## 🛠️ Development
 

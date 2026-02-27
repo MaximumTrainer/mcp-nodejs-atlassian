@@ -44,12 +44,12 @@ export interface ProxyConfig {
  * and Node/npm config variables (npm_config_proxy, npm_config_https_proxy,
  * npm_config_noproxy) as fallbacks for corporate firewall environments.
  *
- * @param service - 'jira' or 'confluence'
+ * @param service - 'jira', 'confluence', or 'atlassian' (for auth endpoints)
  * @param targetUrl - The base URL of the target service
  * @param sslVerify - Whether to verify SSL certificates (default: true)
  */
 export function getProxyConfig(
-  service: 'jira' | 'confluence',
+  service: 'jira' | 'confluence' | 'atlassian',
   targetUrl: string,
   sslVerify: boolean = true
 ): ProxyConfig {
